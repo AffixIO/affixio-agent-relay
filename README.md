@@ -252,8 +252,6 @@ npm test                                   # unit tests, AffixIO mocked
 AFFIXIO_API_KEY=your-key npm run test:live # live tests, about 10 proofs
 ```
 
-CI runs lint, typecheck and unit tests on every push and pull request. Live tests run on `main` only when the `AFFIXIO_API_KEY` repository secret is set.
-
 ## Licence
 
 Apache License 2.0. See [LICENSE](LICENSE). This licence covers the code in this repository only. Use of the AffixIO API is subject to AffixIO's own terms.
