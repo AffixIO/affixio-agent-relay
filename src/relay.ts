@@ -12,7 +12,7 @@ import {
 } from './envelope.js';
 import { actionMatches, checkChain, grantDigest, issueGrant, scopeError, type Grant, type Scope } from './delegation.js';
 import { approvalError, createApproval, validQuorumPolicy, type Approval, type QuorumPolicy } from './quorum.js';
-import { ReceiptLog, type LogCheck, type Receipt } from './receipts.js';
+import { ReceiptLog, type LogCheck, type Receipt, type VerifyOptions } from './receipts.js';
 import { MemoryStore, type KeyValueStore } from './store.js';
 
 export interface ActionPolicy {
@@ -465,8 +465,8 @@ export class Relay {
     };
   }
 
-  verifyReceipts(): LogCheck {
-    return this.receipts.verify();
+  verifyReceipts(opts: VerifyOptions = {}): LogCheck {
+    return this.receipts.verify(opts);
   }
 
   /**

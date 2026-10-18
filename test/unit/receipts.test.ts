@@ -40,6 +40,26 @@ test('editing, deleting, inserting or reordering entries is detected', () => {
   assert.equal(verifyReceipts(rehashed).brokenAt, 1);
 });
 
+test('checking against a saved head catches entries cut off the end', () => {
+  const log = filled();
+  const e = log.entries();
+  const saved = { seq: 2, hash: e[2]!.hash };
+  assert.deepEqual(verifyReceipts(e, { expect: saved }), { ok: true, count: 3, head: e[2]?.hash });
+  log.append('d', { n: 4 });
+  assert.equal(log.verify({ expect: saved }).ok, true);
+
+  const truncated = e.slice(0, 2);
+  assert.equal(verifyReceipts(truncated).ok, true);
+  assert.deepEqual(verifyReceipts(truncated, { expect: saved }), { ok: false, count: 2, head: e[1]?.hash, brokenAt: 2, reason: 'truncated' });
+  assert.equal(verifyReceipts([], { expect: { seq: 0, hash: e[0]!.hash } }).reason, 'truncated');
+
+  const mismatch = verifyReceipts(e, { expect: { seq: 2, hash: 'f'.repeat(64) } });
+  assert.deepEqual([mismatch.ok, mismatch.brokenAt, mismatch.reason], [false, 2, 'head_mismatch']);
+  const edited = structuredClone(e);
+  edited[1]!.data.n = 99;
+  assert.equal(verifyReceipts(edited, { expect: saved }).reason, 'hash');
+});
+
 test('file-backed log detects edits made on disk and survives reload', () => {
   const dir = mkdtempSync(join(tmpdir(), 'relay-receipts-'));
   const path = join(dir, 'receipts.jsonl');
@@ -52,6 +72,11 @@ test('file-backed log detects edits made on disk and survives reload', () => {
   const lines = readFileSync(path, 'utf8').trim().split('\n');
   writeFileSync(path, lines.map((l, i) => (i === 2 ? l.replace('"n":3', '"n":30') : l)).join('\n') + '\n');
   assert.deepEqual([reloaded.verify().ok, reloaded.verify().brokenAt], [false, 2]);
+
+  writeFileSync(path, lines.slice(0, 2).join('\n') + '\n');
+  const cut = new ReceiptLog(path);
+  assert.equal(cut.verify().ok, true);
+  assert.equal(cut.verify({ expect: { seq: 3, hash: JSON.parse(lines[3]!).hash } }).reason, 'truncated');
 
   writeFileSync(path, lines.slice(1).join('\n') + '\n');
   assert.equal(new ReceiptLog(path).verify().ok, false);

@@ -148,3 +148,23 @@ test('receipts tool verifies the log and can anchor it', async () => {
   assert.equal((r.data.anchored as { type: string }).type, 'anchor');
   assert.ok((r.data.latest as unknown[]).length <= 5);
 });
+
+test('receipts tool checks the log against a saved head and will not anchor a mismatch', async () => {
+  const first = await call(sellerMcp, 'receipts', {});
+  const check = first.data.check as { ok: boolean; count: number; head: string };
+  const saved = { expect_seq: check.count - 1, expect_hash: check.head };
+  const r = await call(sellerMcp, 'receipts', saved);
+  assert.equal((r.data.check as { ok: boolean }).ok, true);
+
+  const count = seller.receipts.entries().length;
+  const bad = await call(sellerMcp, 'receipts', { ...saved, expect_hash: 'f'.repeat(64), anchor: true });
+  assert.deepEqual((bad.data.check as { reason: string }).reason, 'head_mismatch');
+  assert.equal(bad.data.anchored, null);
+  assert.equal(seller.receipts.entries().length, count);
+
+  const ahead = await call(sellerMcp, 'receipts', { expect_seq: count + 5, expect_hash: check.head });
+  assert.equal((ahead.data.check as { reason: string }).reason, 'truncated');
+
+  const half = await call(sellerMcp, 'receipts', { expect_seq: 0 });
+  assert.equal(half.isError, true);
+});
