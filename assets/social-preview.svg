@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1220"/>
+      <stop offset="1" stop-color="#13233f"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#38bdf8"/>
+      <stop offset="1" stop-color="#34d399"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#64748b"/>
+    </marker>
+  </defs>
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <rect x="0" y="0" width="1280" height="8" fill="url(#accent)"/>
+
+  <text x="96" y="150" font-family="Source Sans Pro" font-size="30" font-weight="600" fill="#38bdf8" letter-spacing="2">AFFIXIO</text>
+  <text x="96" y="235" font-family="Source Sans Pro" font-size="92" font-weight="700" fill="#f8fafc">AffixIO Agent Relay</text>
+  <text x="96" y="300" font-family="Source Sans Pro" font-size="34" font-weight="400" fill="#cbd5e1">Zero-trust authorisation for agent-to-agent requests.</text>
+  <text x="96" y="345" font-family="Source Sans Pro" font-size="34" font-weight="400" fill="#cbd5e1">Verify the proof before the agent acts.</text>
+
+  <!-- flow -->
+  <g font-family="Source Sans Pro" font-size="24" font-weight="600" text-anchor="middle">
+    <rect x="96" y="420" width="250" height="84" rx="14" fill="#1e293b" stroke="#334155" stroke-width="2"/>
+    <text x="221" y="470" fill="#e2e8f0">Agent, org A</text>
+    <line x1="350" y1="462" x2="470" y2="462" stroke="#64748b" stroke-width="3" marker-end="url(#arrow)"/>
+    <text x="410" y="446" font-size="16" font-weight="500" fill="#94a3b8">signed request</text>
+
+    <rect x="478" y="420" width="324" height="84" rx="14" fill="#0f2a2a" stroke="#34d399" stroke-width="2"/>
+    <text x="640" y="458" fill="#6ee7b7">Verify proof</text>
+    <text x="640" y="486" font-size="17" font-weight="500" fill="#a7f3d0">signature · scope · single use</text>
+
+    <line x1="806" y1="462" x2="926" y2="462" stroke="#64748b" stroke-width="3" marker-end="url(#arrow)"/>
+    <text x="866" y="446" font-size="16" font-weight="500" fill="#94a3b8">accepted</text>
+    <rect x="934" y="420" width="250" height="84" rx="14" fill="#1e293b" stroke="#334155" stroke-width="2"/>
+    <text x="1059" y="470" fill="#e2e8f0">Agent, org B acts</text>
+  </g>
+
+  <text x="96" y="580" font-family="Source Sans Pro" font-size="22" font-weight="500" fill="#64748b">MCP server · delegation chains · N-of-M quorum · tamper-evident receipts · TypeScript · Apache-2.0</text>
+</svg>

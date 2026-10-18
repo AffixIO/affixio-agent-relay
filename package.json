@@ -1,8 +1,55 @@
 {
   "name": "affixio-agent-relay",
   "version": "0.1.0",
-  "description": "Zero-trust, cross-organisation agent-to-agent requests where every request carries a single-use AffixIO proof.",
+  "description": "Zero-trust agent-to-agent authorisation for AI agents: signed, proof-carrying requests, delegation chains, quorum, receipts and an MCP server.",
+  "keywords": [
+    "ai-agents",
+    "agent-to-agent",
+    "a2a",
+    "mcp",
+    "model-context-protocol",
+    "mcp-server",
+    "zero-trust",
+    "authorization",
+    "authorisation",
+    "delegation",
+    "multi-agent",
+    "agentic-ai",
+    "human-in-the-loop",
+    "quorum",
+    "audit-log",
+    "merkle-tree",
+    "ed25519",
+    "agent-security",
+    "llm",
+    "affixio"
+  ],
+  "homepage": "https://github.com/AffixIO/affixio-agent-relay#readme",
+  "bugs": {
+    "url": "https://github.com/AffixIO/affixio-agent-relay/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AffixIO/affixio-agent-relay.git"
+  },
+  "license": "Apache-2.0",
+  "author": "AffixIO (https://www.affix-io.com)",
+  "private": true,
+  "type": "module",
   "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "bin": {
+    "agent-relay": "dist/src/cli.js"
+  },
+  "files": [
+    "dist/src",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -12,17 +59,6 @@
     "example": "npm run build && node dist/examples/two-orgs.js",
     "prepare": "tsc -p tsconfig.json"
   },
-  "keywords": [
-    "mcp",
-    "agents",
-    "agent-to-agent",
-    "zero-trust",
-    "affixio",
-    "delegation",
-    "quorum",
-    "audit"
-  ],
-  "license": "Apache-2.0",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
     "zod": "^4.6.7"
@@ -33,24 +69,5 @@
     "eslint": "^10.13.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.71.2"
-  },
-  "private": true,
-  "type": "module",
-  "types": "dist/src/index.d.ts",
-  "bin": {
-    "agent-relay": "dist/src/cli.js"
-  },
-  "engines": {
-    "node": ">=22"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/AffixIO/affixio-agent-relay.git"
-  },
-  "files": [
-    "dist/src",
-    "README.md",
-    "LICENSE",
-    "SECURITY.md"
-  ]
+  }
 }

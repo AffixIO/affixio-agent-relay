@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/AffixIO/affixio-agent-relay/blob/main/SECURITY.md
+    about: Please report vulnerabilities privately, not in a public issue.
+  - name: Questions and ideas
+    url: https://github.com/AffixIO/affixio-agent-relay/discussions
+    about: Ask questions and share ideas in Discussions.

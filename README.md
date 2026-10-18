@@ -1,6 +1,55 @@
-# affixio-agent-relay
+# AffixIO Agent Relay
 
-Requests between AI agents in different organisations, where every request carries a single-use [AffixIO](https://www.affix-io.com) proof and nothing is trusted by default.
+[![Licence: Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-blue.svg)](LICENSE)
+[![Node.js >= 22](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)](package.json)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
+[![MCP server](https://img.shields.io/badge/MCP-stdio%20server-6E56CF)](#use-it-from-an-mcp-client)
+[![Unit tests: 71 passing](https://img.shields.io/badge/unit%20tests-71%20passing-brightgreen)](#development)
+
+**Zero-trust authorisation for AI agents that talk to other organisations' agents: an agent checks a signed, single-use proof before it acts on a request.**
+
+Requests between AI agents in different organisations, where every request carries a single-use [AffixIO](https://www.affix-io.com) proof and nothing is trusted by default. Ships as a TypeScript library, an HTTP inbox and an MCP server, so Claude, Cursor, Grok, Codex and other MCP clients can send, receive and approve requests.
+
+## Why, in 30 seconds
+
+Most agent-to-agent tooling assumes the agents already trust each other, for example because they belong to one team. Across organisations that assumption does not hold. A purchasing agent at one company and a sales agent at another have no shared login, no shared directory and no reason to take each other's word for anything.
+
+Agent Relay treats every incoming request as untrusted until it proves otherwise, and keeps a record of why it was accepted. Try it locally with no key (the mock proves nothing, it just shows the flow):
+
+```sh
+git clone https://github.com/AffixIO/affixio-agent-relay.git && cd affixio-agent-relay
+npm ci && npm run example
+```
+
+```text
+Using the in-memory mock (set AFFIXIO_API_KEY for live proofs)
+first delivery: { status: 'accepted', id: '3303...', digest: 'sha256:f85e...' }
+replayed:       { status: 'rejected', id: '3303...', digest: 'sha256:f85e...', reason: 'replay' }
+receipt log:    { ok: true, count: 3, head: 'acad216d...' }
+```
+
+Acme's owner delegates "place orders up to 40 GBP" to its buying agent, the buying agent sends a signed order to Globex's sales agent, Globex accepts it once and refuses the replay, and every decision lands in a hash-chained receipt log.
+
+## How it works
+
+```mermaid
+sequenceDiagram
+    participant A as Agent (org A)
+    participant X as AffixIO API
+    participant B as Agent inbox (org B)
+    A->>A: own policy check
+    A->>X: prove (yes/no)
+    X-->>A: single-use proof
+    A->>A: sign exact action, params and proof (Ed25519)
+    A->>B: envelope: action, params, nonce, expiry, proof, delegation, sig
+    B->>B: check signature, pinned key or delegation chain, freshness, scope
+    B->>X: verify proof (second use is refused)
+    X-->>B: valid, decision yes
+    B->>B: quorum check if the policy needs it
+    B->>B: append hash-chained receipt
+    B-->>A: accepted, pending_approval or rejected
+    Note over B: the agent acts only on accepted
+```
 
 Before an agent acts on a request from another company's agent, it checks:
 
@@ -13,11 +62,28 @@ Before an agent acts on a request from another company's agent, it checks:
 
 Every decision is written to an append-only, hash-chained receipt log that can be checked later and checkpointed against the AffixIO Merkle audit tree.
 
-The relay ships as a TypeScript library, an HTTP inbox and an MCP server, so Claude, Cursor, Grok and other MCP clients can send, receive and approve requests.
+## Features
 
-## Why
+- **Proof-carrying requests.** Each envelope is signed with Ed25519 over the exact action and parameters and carries a single-use AffixIO proof.
+- **Replay protection.** Nonces, expiry, and AffixIO's refusal to verify a proof twice.
+- **Delegation chains.** A human or organisation key hands a scoped slice of authority (actions, per-request and running spend limits, currency, expiry) to an agent, which can narrow it further for another agent.
+- **N-of-M quorum.** Risky actions wait until enough listed approvers have signed approvals, each with its own proof.
+- **Tamper-evident receipts.** Append-only, hash-chained log, anchored to the AffixIO Merkle tree on demand.
+- **HTTP inbox.** A small JSON API for receiving requests and approvals.
+- **MCP server (stdio, 8 tools).** Lets an AI agent send, receive, verify, approve and delegate. Trust settings stay in files a person edits, not in tools a prompt can call.
+- **TypeScript library.** Use the relay directly in your own service.
 
-Most agent-to-agent tooling assumes the agents already trust each other, for example because they belong to one team. Across organisations that assumption does not hold. A purchasing agent at one company and a sales agent at another have no shared login, no shared directory and no reason to take each other's word for anything. This project treats every incoming request as untrusted until it proves otherwise, and keeps a record of why it was accepted.
+## Compared with plain agent messaging
+
+| | Plain agent messaging | Agent Relay |
+| --- | --- | --- |
+| Who can send | Anyone who can reach the endpoint or holds a shared token | Pinned keys, or agents holding a delegation chain back to a trusted root |
+| Message integrity | Depends on the transport | Ed25519 signature over the exact action and parameters |
+| Replays | Usually up to the application | Nonce, expiry and single-use proof; replays are rejected |
+| Delegated authority | Shared credentials | Signed, narrowing grants with spend limits and expiry |
+| Group sign-off | Built by hand | N-of-M quorum in policy |
+| Audit trail | Application logs | Hash-chained receipts, anchorable to a Merkle root |
+| Who controls trust | Often the agent's own configuration or prompt | Files a person edits; not exposed as MCP tools |
 
 ## Status
 
@@ -50,6 +116,10 @@ AFFIXIO_API_KEY=your-key node dist/src/cli.js serve --port 8787
 
 ### Use it from an MCP client
 
+The MCP server runs over stdio. Build the project first (`npm run build`), create an identity with `init`, then point your client at `dist/src/cli.js`. Use absolute paths. `--listen` is optional.
+
+**Claude Desktop** (`claude_desktop_config.json`) and **Cursor** (`~/.cursor/mcp.json` or `.cursor/mcp.json` in a project) use the same shape:
+
 ```json
 {
   "mcpServers": {
@@ -61,6 +131,26 @@ AFFIXIO_API_KEY=your-key node dist/src/cli.js serve --port 8787
   }
 }
 ```
+
+**Grok** (`~/.grok/config.toml`, or run `grok mcp add agent-relay -e AFFIXIO_API_KEY=your-key -- node /path/to/affixio-agent-relay/dist/src/cli.js mcp --dir /path/to/.agent-relay`):
+
+```toml
+[mcp_servers.agent-relay]
+command = "node"
+args = ["/path/to/affixio-agent-relay/dist/src/cli.js", "mcp", "--dir", "/path/to/.agent-relay", "--listen", "8787"]
+env = { AFFIXIO_API_KEY = "${AFFIXIO_API_KEY}" }
+```
+
+**Codex** (`~/.codex/config.toml`):
+
+```toml
+[mcp_servers.agent-relay]
+command = "node"
+args = ["/path/to/affixio-agent-relay/dist/src/cli.js", "mcp", "--dir", "/path/to/.agent-relay", "--listen", "8787"]
+env = { AFFIXIO_API_KEY = "your-key" }
+```
+
+Other MCP clients that can launch a stdio server work the same way. For a local trial without a key, set `AFFIXIO_MOCK=1` instead of `AFFIXIO_API_KEY`; mock proofs prove nothing.
 
 `--listen` also hosts this agent's HTTP inbox in the same process, so `check_inbox` sees what arrives.
 
@@ -242,6 +332,29 @@ Read these before relying on the relay.
 
 See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
+## FAQ
+
+**How do I stop an AI agent acting without permission?**
+Put the decision outside the agent. With Agent Relay, the receiving agent only acts on requests the relay marks `accepted`: signed by a trusted key or a valid delegation chain, inside scope and spend limits, fresh, carrying an unused proof and, where policy says so, approved by enough people. The trust and policy files are edited by a person, not by the agent through MCP.
+
+**What is agent-to-agent authorisation?**
+It is checking that a request from one agent to another is allowed before acting on it: who sent it, on whose authority, for exactly which action, and whether it has been used before. Authentication tells you which agent is talking; authorisation tells you whether it may ask for this.
+
+**Can I get MCP human approval for risky actions?**
+Yes. Mark an action with a `quorum` in `policy.json` (for example 2 of 3 named people). The request waits as `pending_approval` until enough approvers send signed approvals, through the `approve` MCP tool or the HTTP inbox.
+
+**Does it work across companies?**
+That is the main use case. Each side runs its own inbox and its own AffixIO key, pins the other side's keys or trusts a root key, and verifies every request itself. See "Who verifies" under the security notes.
+
+**Do I need an AffixIO account?**
+For real proofs, yes. Keys come from [AffixIO Studio](https://www.affix-io.com/studio). The example and unit tests run against an in-memory mock with no key.
+
+**Which MCP clients are supported?**
+Any client that can launch a stdio MCP server, including Claude Desktop, Cursor, Grok and Codex. Configuration snippets are above.
+
+**Is it on npm?**
+No. Install from GitHub with `npm install github:AffixIO/affixio-agent-relay`.
+
 ## Development
 
 ```sh
@@ -255,3 +368,9 @@ AFFIXIO_API_KEY=your-key npm run test:live # live tests, about 10 proofs
 ## Licence
 
 Apache License 2.0. See [LICENSE](LICENSE). This licence covers the code in this repository only. Use of the AffixIO API is subject to AffixIO's own terms.
+
+## Contributing
+
+Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) and the [good first issues](https://github.com/AffixIO/affixio-agent-relay/labels/good%20first%20issue).
+
+If this project is useful to you, a star helps other people find it.
