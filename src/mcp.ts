@@ -178,13 +178,22 @@ export function createMcpServer(relay: Relay, opts: McpOptions = {}): McpServer 
   server.registerTool(
     'receipts',
     {
-      description: 'Check the hash-chained receipt log and show the latest entries. With anchor=true, record a checkpoint against the AffixIO Merkle root.',
-      inputSchema: { limit: z.number().int().min(1).max(200).optional(), anchor: z.boolean().optional() },
+      description:
+        'Check the hash-chained receipt log and show the latest entries. Pass expect_seq and expect_hash from an earlier check to detect entries cut off the end. With anchor=true, record a checkpoint against the AffixIO Merkle root.',
+      inputSchema: {
+        limit: z.number().int().min(1).max(200).optional(),
+        anchor: z.boolean().optional(),
+        expect_seq: z.number().int().min(0).optional().describe('Sequence number of a receipt saved earlier (count - 1 from that check).'),
+        expect_hash: z.string().regex(/^[0-9a-f]{64}$/).optional().describe('Hash of that receipt (the head from that check).'),
+      },
     },
     async (args) =>
       guard(async () => {
-        const anchored = args.anchor ? await relay.anchor() : undefined;
-        const check = relay.verifyReceipts();
+        if ((args.expect_seq === undefined) !== (args.expect_hash === undefined)) throw new Error('expect_seq and expect_hash must be given together');
+        const expect = args.expect_seq !== undefined && args.expect_hash !== undefined ? { seq: args.expect_seq, hash: args.expect_hash } : undefined;
+        // Never anchor a log that has lost entries since the expected head, or the shorter chain would be checkpointed.
+        const anchored = args.anchor && (!expect || relay.verifyReceipts({ expect }).ok) ? await relay.anchor() : undefined;
+        const check = relay.verifyReceipts({ expect });
         const entries = relay.receipts.entries();
         return { check, anchored: anchored ?? null, latest: entries.slice(-(args.limit ?? 20)) };
       }),

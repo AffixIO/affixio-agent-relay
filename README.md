@@ -4,7 +4,7 @@
 [![Node.js >= 22](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)](package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
 [![MCP server](https://img.shields.io/badge/MCP-stdio%20server-6E56CF)](#use-it-from-an-mcp-client)
-[![Unit tests: 71 passing](https://img.shields.io/badge/unit%20tests-71%20passing-brightgreen)](#development)
+[![Unit tests: 73 passing](https://img.shields.io/badge/unit%20tests-73%20passing-brightgreen)](#development)
 
 **Zero-trust authorisation for AI agents that talk to other organisations' agents: an agent checks a signed, single-use proof before it acts on a request.**
 
@@ -163,7 +163,7 @@ Other MCP clients that can launch a stdio server work the same way. For a local 
 | `approve` | Approve a request waiting for quorum in another inbox |
 | `delegate` | Hand a narrower slice of authority to another agent |
 | `import_grant` | Store a delegation chain issued to this agent |
-| `receipts` | Check the receipt log, show recent entries, optionally anchor it |
+| `receipts` | Check the receipt log (optionally against a saved head), show recent entries, optionally anchor it |
 
 Trust settings are not exposed as MCP tools. Pinned peers, trusted roots and policy live in files that a person edits, so a prompt cannot widen what an agent accepts.
 
@@ -299,7 +299,7 @@ Request bodies are limited to 64 KB and must be `application/json`.
 
 ### Receipts
 
-`receipts.jsonl` holds one JSON object per line: `seq`, `ts`, `type`, `data`, `prev` and `hash`, where `hash` is the sha256 of the canonical form of the other fields and `prev` is the previous hash (64 zeros for the first). Editing, removing, inserting or reordering any line breaks verification, with one exception: cutting entries off the end leaves a shorter valid chain. Compare against an anchored or copied head to catch that. Receipts store the action hash and proof digests, not request parameters.
+`receipts.jsonl` holds one JSON object per line: `seq`, `ts`, `type`, `data`, `prev` and `hash`, where `hash` is the sha256 of the canonical form of the other fields and `prev` is the previous hash (64 zeros for the first). Editing, removing, inserting or reordering any line breaks verification, with one exception: cutting entries off the end leaves a shorter valid chain. To catch that, save the `count` and `head` from a check and pass them back later: `verifyReceipts(entries, { expect: { seq: count - 1, hash: head } })`, `ReceiptLog.verify({ expect })`, `relay.verifyReceipts({ expect })`, or the `receipts` tool with `expect_seq` and `expect_hash`. The check fails with reason `truncated` if the log no longer reaches that receipt, or `head_mismatch` if the receipt at that position has a different hash. The `receipts` tool will not anchor a log that fails this check. Receipts store the action hash and proof digests, not request parameters.
 
 `anchor()` (or the `receipts` tool with `anchor: true`) appends a checkpoint pairing the current log head with the AffixIO Merkle root from `GET /v1/merkle/root`. Each proof digest in the log can be looked up with `GET /v1/merkle/proof/:digest` to show AffixIO recorded it.
 
@@ -327,7 +327,7 @@ Read these before relying on the relay.
 - **Spend totals** are reserved when a request is verified, including requests that later expire waiting for quorum. They are not released.
 - **Clock skew.** 60 seconds by default. Incoming envelopes may live at most 15 minutes.
 - **Approver view.** `GET /v1/requests/:id` shows the action and parameter hash to anyone who knows the request id. Ids are random UUIDs. Approvers who need the parameters should get them from the requester and check them against `action_hash`.
-- **Receipts** detect changes inside the log; they do not detect entries cut off the end, or the whole file being deleted, by someone with file access. Anchor regularly and keep copies elsewhere if that matters.
+- **Receipts** detect changes inside the log. Entries cut off the end are only detected when you check against a head saved earlier (`expect`, see [Receipts](#receipts)) or an anchor; keep that saved head somewhere the log's owner cannot edit. Nothing detects the whole file being deleted by someone with file access, so anchor regularly and keep copies elsewhere if that matters.
 - **MCP tools** can make outbound HTTP requests to the inbox URL they are given. Run the MCP server with the network access you are comfortable giving the agent.
 
 See [SECURITY.md](SECURITY.md) to report a vulnerability.

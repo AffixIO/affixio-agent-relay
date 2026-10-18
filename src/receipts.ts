@@ -28,8 +28,22 @@ export function receiptHash(r: Omit<Receipt, 'hash'>): string {
   return sha256Hex(canonicalize({ seq: r.seq, ts: r.ts, type: r.type, data: r.data, prev: r.prev }));
 }
 
-/** Check a list of receipts. Any edit, deletion, insertion or reordering breaks the chain. */
-export function verifyReceipts(entries: readonly Receipt[]): LogCheck {
+/** A log head saved earlier, for example from a previous check. */
+export interface ExpectedHead {
+  seq: number;
+  hash: string;
+}
+
+export interface VerifyOptions {
+  /** Require the log to contain this receipt, which catches entries cut off the end since the head was saved. */
+  expect?: ExpectedHead;
+}
+
+/**
+ * Check a list of receipts. Any edit, deletion, insertion or reordering breaks the chain. With `expect`, the log
+ * must also contain a receipt at `expect.seq` whose hash is `expect.hash`.
+ */
+export function verifyReceipts(entries: readonly Receipt[], opts: VerifyOptions = {}): LogCheck {
   let prev = GENESIS;
   for (let i = 0; i < entries.length; i++) {
     const r = entries[i];
@@ -37,6 +51,11 @@ export function verifyReceipts(entries: readonly Receipt[]): LogCheck {
     if (r.prev !== prev) return { ok: false, count: entries.length, head: prev, brokenAt: i, reason: 'link' };
     if (receiptHash(r) !== r.hash) return { ok: false, count: entries.length, head: prev, brokenAt: i, reason: 'hash' };
     prev = r.hash;
+  }
+  const expect = opts.expect;
+  if (expect) {
+    if (expect.seq >= entries.length) return { ok: false, count: entries.length, head: prev, brokenAt: entries.length, reason: 'truncated' };
+    if (entries[expect.seq]?.hash !== expect.hash) return { ok: false, count: entries.length, head: prev, brokenAt: expect.seq, reason: 'head_mismatch' };
   }
   return { ok: true, count: entries.length, head: prev };
 }
@@ -98,7 +117,7 @@ export class ReceiptLog {
     return last ? last.hash : GENESIS;
   }
 
-  verify(): LogCheck {
-    return verifyReceipts(this.entries());
+  verify(opts: VerifyOptions = {}): LogCheck {
+    return verifyReceipts(this.entries(), opts);
   }
 }
