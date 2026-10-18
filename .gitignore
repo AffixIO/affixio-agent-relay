@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+.agent-relay/
+*.pem
+*.key
+identity.json
+receipts.jsonl
+state.json
+.DS_Store
