@@ -2,7 +2,7 @@
 import { parseArgs } from 'node:util';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { HttpAffixioClient, MockAffixioClient, type AffixioClient } from './affixio.js';
-import { initStateDir, loadIdentity, loadRelay } from './config.js';
+import { initStateDir, loadIdentity, loadRelay, rotateIdentity } from './config.js';
 import { createInboxServer } from './server.js';
 import { createMcpServer } from './mcp.js';
 
@@ -11,6 +11,7 @@ const USAGE = `agent-relay <command> [options]
 Commands:
   init  --id <agent-id>           create an identity and empty trust and policy files
   id                              print this agent's id and public key
+  rotate                          replace this agent's key pair, keeping its id and a backup of the old identity
   serve [--port 8787] [--host 127.0.0.1]
                                   run the HTTP inbox
   mcp   [--listen <port>]         run the MCP server on stdio, optionally hosting the inbox too
@@ -64,6 +65,12 @@ async function main(argv: string[]): Promise<void> {
   if (cmd === 'id') {
     const identity = loadIdentity(dir);
     process.stdout.write(`${JSON.stringify({ id: identity.id, key: identity.keys.publicKey }, null, 2)}\n`);
+    return;
+  }
+  if (cmd === 'rotate') {
+    const r = rotateIdentity(dir);
+    process.stdout.write(`${JSON.stringify({ id: r.id, old_key: r.oldKey, new_key: r.newKey, backup: r.backup }, null, 2)}\n`);
+    process.stderr.write(`agent-relay: replace ${r.oldKey} with ${r.newKey} for ${r.id} in trust.json on each peer, then restart this agent\n`);
     return;
   }
   if (cmd === 'serve') {
