@@ -4,7 +4,7 @@
 [![Node.js >= 22](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)](package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
 [![MCP server](https://img.shields.io/badge/MCP-stdio%20server-6E56CF)](#use-it-from-an-mcp-client)
-[![Unit tests: 73 passing](https://img.shields.io/badge/unit%20tests-73%20passing-brightgreen)](#development)
+[![Unit tests: 75 passing](https://img.shields.io/badge/unit%20tests-75%20passing-brightgreen)](#development)
 
 **Zero-trust authorisation for AI agents that talk to other organisations' agents: an agent checks a signed, single-use proof before it acts on a request.**
 
@@ -114,7 +114,7 @@ node dist/src/cli.js init --id globex.example/sales
 AFFIXIO_API_KEY=your-key node dist/src/cli.js serve --port 8787
 ```
 
-To replace an agent's key pair, run `node dist/src/cli.js rotate`. The agent keeps its id. The old identity is saved as `.agent-relay/identity.<timestamp>.json` (mode 600), and a `key.rotated` receipt records both public keys. The command prints the old and new public keys. Replace the old key with the new one in `trust.json` on each peer (and wherever this agent is a trusted root or quorum approver), then restart this agent. Delegation chains this agent holds name its old key, so they stop working; ask the issuer for new ones.
+To replace an agent's key pair, first stop every `serve` or `mcp` process using that state directory. Run `node dist/src/cli.js rotate`, update the old key to the new one in `trust.json` on each peer (and wherever this agent is a trusted root or quorum approver), then start the agent again. The agent keeps its id. The old identity is saved as `.agent-relay/identity.<timestamp>.json` (mode 600) and contains the old private key, so it must remain protected and out of version control. A `key.rotated` receipt records both public keys. Delegation chains this agent holds name its old key, so they stop working; ask the issuer for new ones.
 
 ### Use it from an MCP client
 

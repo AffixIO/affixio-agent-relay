@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { generateKeyPair } from './keys.js';
 import { AGENT_ID, isAgentRef, type AgentRef, type Identity } from './envelope.js';
@@ -67,7 +67,10 @@ export function rotateIdentity(dir: string, now: Date = new Date()): KeyRotation
   chmodSync(backupPath, 0o600);
   const identity: Identity = { id: old.id, keys: generateKeyPair() };
   const tmpPath = `${idPath}.tmp`;
-  writeFileSync(tmpPath, `${JSON.stringify(identity, null, 2)}\n`, { mode: 0o600 });
+  // Remove a stale temporary file before creating a new one exclusively. This
+  // prevents a pre-existing symlink from redirecting the private key write.
+  if (existsSync(tmpPath)) unlinkSync(tmpPath);
+  writeFileSync(tmpPath, `${JSON.stringify(identity, null, 2)}\n`, { mode: 0o600, flag: 'wx' });
   chmodSync(tmpPath, 0o600);
   renameSync(tmpPath, idPath);
   const rotation: KeyRotation = { id: old.id, oldKey: old.keys.publicKey, newKey: identity.keys.publicKey, backup: basename(backupPath) };

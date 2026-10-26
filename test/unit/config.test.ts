@@ -57,6 +57,7 @@ test('rotate keeps the agent id, backs up the old identity and records a receipt
   writeFileSync(join(base, 'b', 'policy.json'), JSON.stringify({ allowUnlistedActions: false, actions: { 'quote.request': {} } }));
 
   const now = new Date('2026-01-02T03:04:05.678Z');
+  writeFileSync(join(base, 'a', 'identity.json.tmp'), 'stale temporary identity');
   const r = rotateIdentity(join(base, 'a'), now);
   assert.deepEqual([r.id, r.oldKey, r.backup], [a.id, a.keys.publicKey, 'identity.2026-01-02T03-04-05-678Z.json']);
   assert.notEqual(r.newKey, r.oldKey);
