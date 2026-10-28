@@ -4,7 +4,7 @@
 [![Node.js >= 22](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)](package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
 [![MCP server](https://img.shields.io/badge/MCP-stdio%20server-6E56CF)](#use-it-from-an-mcp-client)
-[![Unit tests: 73 passing](https://img.shields.io/badge/unit%20tests-73%20passing-brightgreen)](#development)
+[![Unit tests: 75 passing](https://img.shields.io/badge/unit%20tests-75%20passing-brightgreen)](#development)
 
 **Zero-trust authorisation for AI agents that talk to other organisations' agents: an agent checks a signed, single-use proof before it acts on a request.**
 
@@ -113,6 +113,8 @@ node dist/src/cli.js init --id globex.example/sales
 # 3. Run the HTTP inbox
 AFFIXIO_API_KEY=your-key node dist/src/cli.js serve --port 8787
 ```
+
+To replace an agent's key pair, first stop every `serve` or `mcp` process using that state directory. Run `node dist/src/cli.js rotate`, update the old key to the new one in `trust.json` on each peer (and wherever this agent is a trusted root or quorum approver), then start the agent again. The agent keeps its id. The old identity is saved as `.agent-relay/identity.<timestamp>.json` (mode 600) and contains the old private key, so it must remain protected and out of version control. A `key.rotated` receipt records both public keys. Delegation chains this agent holds name its old key, so they stop working; ask the issuer for new ones.
 
 ### Use it from an MCP client
 
@@ -322,7 +324,7 @@ Read these before relying on the relay.
 - **Interception.** Someone who intercepts an envelope before delivery could copy its proof id into an envelope of their own, but they cannot sign as a pinned peer or a delegated agent, so the receiver rejects it. They could still spend the proof first, which blocks the real request (denial of service). Use HTTPS between organisations.
 - **Who verifies.** The receiver verifies with its own AffixIO key. The live tests use one AffixIO account for both organisations; whether a proof made under one account verifies under another depends on AffixIO account settings. Check this for your deployment.
 - **Proof window.** AffixIO looks up server-made proofs for 7 days. Grants must be presented to their audience, and requests delivered, within that time.
-- **Keys.** `identity.json` holds the agent's private key in plain JSON with file mode 600. Keep it out of version control (the state folder includes its own `.gitignore`) and use a secrets manager in production. There is no key rotation or revocation yet; remove a key from `trust.json` to stop trusting it.
+- **Keys.** `identity.json` holds the agent's private key in plain JSON with file mode 600. Keep it out of version control (the state folder includes its own `.gitignore`) and use a secrets manager in production. `agent-relay rotate` replaces the key pair and keeps the old one in a backup file, but peers do not learn about the new key automatically: each peer has to update its `trust.json`. There are no revocation lists yet; remove a key from `trust.json` to stop trusting it.
 - **State.** Nonces, remembered grants and spend totals are kept in a JSON file for a single process. Running several inbox processes for one agent needs a shared store with atomic updates.
 - **Spend totals** are reserved when a request is verified, including requests that later expire waiting for quorum. They are not released.
 - **Clock skew.** 60 seconds by default. Incoming envelopes may live at most 15 minutes.

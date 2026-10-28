@@ -1,5 +1,5 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { basename, join } from 'node:path';
 import { generateKeyPair } from './keys.js';
 import { AGENT_ID, isAgentRef, type AgentRef, type Identity } from './envelope.js';
 import { Relay, type RelayPolicy } from './relay.js';
@@ -10,6 +10,7 @@ import type { AffixioClient } from './affixio.js';
 /**
  * State directory layout:
  *   identity.json   this agent's id and Ed25519 key pair (mode 600, never commit)
+ *   identity.<timestamp>.json  previous key pairs kept by rotateIdentity (mode 600, never commit)
  *   trust.json      { "peers": [AgentRef], "roots": [AgentRef] }, edited by a human
  *   policy.json     RelayPolicy, edited by a human
  *   state.json      nonces, verified grants, spend totals
@@ -43,6 +44,38 @@ export function loadIdentity(dir: string): Identity {
     throw new Error(`no identity in ${dir}; run "agent-relay init" first`);
   }
   return raw;
+}
+
+export interface KeyRotation {
+  id: string;
+  oldKey: string;
+  newKey: string;
+  /** File name of the previous identity, kept in the state directory. */
+  backup: string;
+}
+
+/**
+ * Give this agent a new Ed25519 key pair under the same agent id. The previous identity is kept as
+ * identity.<timestamp>.json (mode 600) and a key.rotated receipt records both public keys. Peers keep trusting
+ * the old key until their trust.json is updated.
+ */
+export function rotateIdentity(dir: string, now: Date = new Date()): KeyRotation {
+  const old = loadIdentity(dir);
+  const idPath = join(dir, 'identity.json');
+  const backupPath = join(dir, `identity.${now.toISOString().replace(/[:.]/g, '-')}.json`);
+  writeFileSync(backupPath, readFileSync(idPath), { mode: 0o600, flag: 'wx' });
+  chmodSync(backupPath, 0o600);
+  const identity: Identity = { id: old.id, keys: generateKeyPair() };
+  const tmpPath = `${idPath}.tmp`;
+  // Remove a stale temporary file before creating a new one exclusively. This
+  // prevents a pre-existing symlink from redirecting the private key write.
+  if (existsSync(tmpPath)) unlinkSync(tmpPath);
+  writeFileSync(tmpPath, `${JSON.stringify(identity, null, 2)}\n`, { mode: 0o600, flag: 'wx' });
+  chmodSync(tmpPath, 0o600);
+  renameSync(tmpPath, idPath);
+  const rotation: KeyRotation = { id: old.id, oldKey: old.keys.publicKey, newKey: identity.keys.publicKey, backup: basename(backupPath) };
+  new ReceiptLog(join(dir, 'receipts.jsonl')).append('key.rotated', { id: rotation.id, old_key: rotation.oldKey, new_key: rotation.newKey, backup: rotation.backup });
+  return rotation;
 }
 
 function refs(x: unknown, name: string): AgentRef[] {

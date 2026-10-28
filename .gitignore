@@ -8,6 +8,7 @@ coverage/
 *.pem
 *.key
 identity.json
+identity.*.json
 receipts.jsonl
 state.json
 .DS_Store
